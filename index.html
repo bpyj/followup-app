@@ -242,8 +242,21 @@ function cleanRow(r) {
   r['CALLS'] = call1 || (callsIsDate ? '' : callsRaw);
   // Use FOLLWUP as followupStatus
   r['followupStatus'] = normaliseStatus(r['FOLLWUP'] || '');
-  // Carry CB DATE into callbackDate for the app
-  if (r['CB DATE']) r['callbackDate'] = r['CB DATE'];
+  // Clean up CB DATE and carry into callbackDate
+  if (r['CB DATE']) {
+    const cbRaw = r['CB DATE'].toString();
+    if (cbRaw.includes('GMT') || cbRaw.includes('00:00:00')) {
+      const d = new Date(cbRaw);
+      if (!isNaN(d)) {
+        // Convert to YYYY-MM-DD for date input compatibility
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth()+1).padStart(2,'0');
+        const dd = String(d.getDate()).padStart(2,'0');
+        r['CB DATE'] = yyyy + '-' + mm + '-' + dd;
+      }
+    }
+    r['callbackDate'] = r['CB DATE'];
+  }
   return r;
 }
 
