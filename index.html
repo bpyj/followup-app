@@ -235,10 +235,13 @@ function cleanRow(r) {
     }
   });
   // Use CALL 1 as the display call note (that's what the app writes to)
-  if (r['CALL 1'] && !r['CALLS']) r['CALLS'] = r['CALL 1'];
-  if (r['CALL 1']) r['CALLS'] = r['CALL 1'];
+  // CALLS column often contains a date object — ignore it, use CALL 1
+  const call1 = (r['CALL 1'] || '').trim();
+  const callsRaw = (r['CALLS'] || '').toString();
+  const callsIsDate = callsRaw.includes('GMT') || callsRaw.includes('00:00:00') || callsRaw.match(/^\d{4}-\d{2}-\d{2}/);
+  r['CALLS'] = call1 || (callsIsDate ? '' : callsRaw);
   // Use FOLLWUP as followupStatus
-  if (r['FOLLWUP'] && !r['followupStatus']) r['followupStatus'] = r['FOLLWUP'];
+  r['followupStatus'] = r['FOLLWUP'] || '';
   return r;
 }
 
