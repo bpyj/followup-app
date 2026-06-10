@@ -205,7 +205,7 @@ function fetchFromSheet(callback) {
     delete window[cbName];
     document.body.removeChild(script);
     if (result.success && result.data) {
-      callback(result.data);
+      callback(result.data.map(cleanRow));
     } else {
       callback(null);
     }
@@ -216,6 +216,30 @@ function fetchFromSheet(callback) {
     callback(null);
   };
   document.body.appendChild(script);
+}
+
+function cleanRow(r) {
+  // Format Q VALUE as currency
+  if (r['Q VALUE'] && !r['Q VALUE'].toString().startsWith('$')) {
+    const num = parseFloat(r['Q VALUE']);
+    if (!isNaN(num)) r['Q VALUE'] = '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2 });
+  }
+  // Clean up date fields that come as long JS date strings
+  ['E DATE', 'Q DATE', 'PO DATE'].forEach(function(field) {
+    const val = r[field] || '';
+    if (val.includes('GMT') || val.includes('00:00:00')) {
+      const d = new Date(val);
+      if (!isNaN(d)) {
+        r[field] = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
+      }
+    }
+  });
+  // Use CALL 1 as the display call note (that's what the app writes to)
+  if (r['CALL 1'] && !r['CALLS']) r['CALLS'] = r['CALL 1'];
+  if (r['CALL 1']) r['CALLS'] = r['CALL 1'];
+  // Use FOLLWUP as followupStatus
+  if (r['FOLLWUP'] && !r['followupStatus']) r['followupStatus'] = r['FOLLWUP'];
+  return r;
 }
 
 function saveRecords() {
