@@ -383,7 +383,7 @@ function renderCard(r, i) {
         <span>${phone || 'No number'}</span>
         ${r.newContactName ? `<span class="new-contact">→ ${r.newContactName}</span>` : ''}
       </div>
-      ${(r.callNotes || r.CALLS) ? `<div class="card-note">"${r.callNotes || r.CALLS}"</div>` : ''}
+      ${(r.callNotes || r.CALLS) ? `<div class="card-note">"${(r.callNotes || r.CALLS).split('\n')[0]}"</div>` : ''}
       ${r.callbackDate && status === 'Call Back' ? `<div class="callback-date">Call back: ${r.callbackDate}</div>` : ''}
       <div class="card-actions">
         <button class="log-btn" onclick="openModal(${idx})">📞 Log Call</button>
@@ -460,7 +460,7 @@ function renderModal() {
         ${(r.callNotes || r.CALLS) ? `
         <div class="prev-note">
           <div class="prev-note-label">Previous Call Note</div>
-          <div class="prev-note-text">"${r.callNotes || r.CALLS}"</div>
+          <div class="prev-note-text" style="white-space:pre-line">${(r.callNotes || r.CALLS || '').split('\n').map((line,i) => i===0 ? '"'+line : line).join('\n')}"</div>
           ${r.lastCalled ? `<div class="prev-note-date">${r.lastCalled}</div>` : ''}
         </div>` : ''}
 
@@ -584,10 +584,13 @@ function saveCall() {
   const qval = document.getElementById('m-qval')?.value || r['Q VALUE'];
 
   const todayStr = new Date().toLocaleDateString('en-GB');
-  const callNote = [todayStr, notes,
+  const newLine = [todayStr, notes,
     status === 'Call Back' && cbDate ? 'Call back: ' + cbDate : '',
     status === 'New Contact' ? 'New contact: ' + ncName + ' ' + ncPhone : '',
   ].filter(Boolean).join(' | ');
+  // Prepend new note above existing — keep full history
+  const existingNote = (records[activeRecord]['CALL 1'] || records[activeRecord].callNotes || records[activeRecord].CALLS || '').trim();
+  const callNote = existingNote ? newLine + '\n' + existingNote : newLine;
 
   records[activeRecord] = {
     ...r,
