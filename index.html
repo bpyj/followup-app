@@ -241,7 +241,7 @@ function cleanRow(r) {
   const callsIsDate = callsRaw.includes('GMT') || callsRaw.includes('00:00:00') || callsRaw.match(/^\d{4}-\d{2}-\d{2}/);
   r['CALLS'] = call1 || (callsIsDate ? '' : callsRaw);
   // Use FOLLWUP as followupStatus
-  r['followupStatus'] = r['FOLLWUP'] || '';
+  r['followupStatus'] = normaliseStatus(r['FOLLWUP'] || '');
   return r;
 }
 
@@ -270,9 +270,26 @@ function showSaveMsg(msg) {
   renderTopbar();
 }
 
+function normaliseStatus(raw) {
+  if (!raw) return '';
+  const map = {
+    'CALL BACK': 'Call Back',
+    'NO ANSWER': 'No Answer',
+    'NEW CONTACT': 'New Contact',
+    'TENDER PENDING': 'Tender Pending',
+    'WON': 'Won',
+    'LOST': 'Lost',
+    'CLOSED': 'Closed',
+  };
+  return map[raw.toUpperCase().trim()] || raw;
+}
+
 function getFiltered() {
   if (activeFilter === 'All') return records;
-  return records.filter(r => (r.followupStatus || r.FOLLWUP) === activeFilter);
+  return records.filter(r => {
+    const st = (r.followupStatus || r.FOLLWUP || '').toUpperCase().trim();
+    return st === activeFilter.toUpperCase().trim();
+  });
 }
 
 function getCallbackDue() {
