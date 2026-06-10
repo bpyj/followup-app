@@ -629,6 +629,18 @@ function saveCall() {
     showSaveMsg('⚠️ Saved locally — sheet sync failed');
   };
   document.body.appendChild(script);
+
+  // After writing, pull fresh data from sheet so app is always in sync
+  setTimeout(function() {
+    fetchFromSheet(function(liveData) {
+      if (liveData) {
+        records = liveData;
+        saveRecords();
+        render();
+        showSaveMsg('✅ Synced from sheet');
+      }
+    });
+  }, 2500);
 }
 
 // Init
