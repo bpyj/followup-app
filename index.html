@@ -242,6 +242,8 @@ function cleanRow(r) {
   r['CALLS'] = call1 || (callsIsDate ? '' : callsRaw);
   // Use FOLLWUP as followupStatus
   r['followupStatus'] = normaliseStatus(r['FOLLWUP'] || '');
+  // Carry CB DATE into callbackDate for the app
+  if (r['CB DATE']) r['callbackDate'] = r['CB DATE'];
   return r;
 }
 
@@ -284,12 +286,46 @@ function normaliseStatus(raw) {
   return map[raw.toUpperCase().trim()] || raw;
 }
 
-function getFiltered() {
-  if (activeFilter === 'All') return records;
-  return records.filter(r => {
-    const st = (r.followupStatus || r.FOLLWUP || '').toUpperCase().trim();
-    return st === activeFilter.toUpperCase().trim();
+function sortRecords(list) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  return list.slice().sort((a, b) => {
+    const stA = (a.followupStatus || a.FOLLWUP || '').toLowerCase();
+    const stB = (b.followupStatus || b.FOLLWUP || '').toLowerCase();
+    const cbA = a['CB DATE'] || a.callbackDate || '';
+    const cbB = b['CB DATE'] || b.callbackDate || '';
+    const dateA = cbA ? new Date(cbA) : null;
+    const dateB = cbB ? new Date(cbB) : null;
+
+    // Priority score: overdue=0, due today=1, call back future=2, others=3, closed=4
+    function score(st, date) {
+      if (st === 'closed') return 4;
+      if (st === 'call back' && date) {
+        date.setHours(0,0,0,0);
+        if (date < today) return 0;  // overdue
+        if (date.getTime() === today.getTime()) return 1; // today
+        return 2; // future
+      }
+      if (st === 'call back') return 2;
+      return 3;
+    }
+    const sA = score(stA, dateA ? new Date(dateA) : null);
+    const sB = score(stB, dateB ? new Date(dateB) : null);
+    if (sA !== sB) return sA - sB;
+    // Within same priority, sort by date ascending
+    if (dateA && dateB) return dateA - dateB;
+    return 0;
   });
+}
+
+function getFiltered() {
+  let list = records;
+  if (activeFilter !== 'All') {
+    list = records.filter(r => {
+      const st = (r.followupStatus || r.FOLLWUP || '').toUpperCase().trim();
+      return st === activeFilter.toUpperCase().trim();
+    });
+  }
+  return sortRecords(list);
 }
 
 function getCallbackDue() {
@@ -576,7 +612,6 @@ function saveCall() {
   const status = selectedStatus || r.followupStatus || '';
   if (!status) return;
 
-  const cbDate = document.getElementById('m-cbdate')?.value || '';
   const ncName = document.getElementById('m-ncname')?.value || '';
   const ncPhone = document.getElementById('m-ncphone')?.value || '';
   const notes = document.getElementById('m-notes')?.value || '';
@@ -597,6 +632,7 @@ function saveCall() {
     followupStatus: status,
     callNotes: notes,
     callbackDate: status === 'Call Back' ? cbDate : '',
+    'CB DATE': status === 'Call Back' ? cbDate : '',
     newContactName: status === 'New Contact' ? ncName : (r.newContactName || ''),
     newContactPhone: status === 'New Contact' ? ncPhone : (r.newContactPhone || ''),
     'Q NUMBER': qno,
@@ -611,7 +647,7 @@ function saveCall() {
 
   // Use JSONP to bypass CORS
   const callbackName = 'cb_' + Date.now();
-  const params = new URLSearchParams({ qNumber: qno, calls: callNote, status: status, callback: callbackName });
+  const params = new URLSearchParams({ qNumber: qno, calls: callNote, status: status, cbDate: cbDate, callback: callbackName });
   const script = document.createElement('script');
   script.src = DOORBELL_URL + '?' + params.toString();
   window[callbackName] = function(result) {
