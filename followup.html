@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Follow-Up">
+  <title>Follow-Up Calls</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; min-height: 100vh; }
+
+    /* Top bar */
+    .topbar { background: #1e293b; color: white; padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top)); position: sticky; top: 0; z-index: 100; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .topbar-left p { font-size: 11px; color: #94a3b8; }
+    .topbar-left h1 { font-size: 16px; font-weight: 700; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+    .save-msg { font-size: 11px; color: #34d399; font-weight: 600; }
+    .reset-btn { font-size: 11px; color: #94a3b8; border: 1px solid #475569; border-radius: 8px; padding: 5px 10px; background: none; cursor: pointer; }
+
+    /* Banners */
+    .banner-due { background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .banner-due span { font-size: 13px; font-weight: 600; color: #92400e; }
+    .banner-due button { font-size: 11px; color: #b45309; text-decoration: underline; background: none; border: none; cursor: pointer; }
+    .banner-info { background: #eff6ff; border-bottom: 1px solid #dbeafe; padding: 8px 16px; font-size: 11px; color: #3b82f6; }
+
+    /* Filters */
+    .filters { padding: 10px 16px 8px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+    .filters::-webkit-scrollbar { display: none; }
+    .filter-btn { white-space: nowrap; font-size: 11px; font-weight: 500; padding: 6px 12px; border-radius: 999px; border: 1px solid #e2e8f0; background: white; color: #475569; cursor: pointer; flex-shrink: 0; }
+    .filter-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
+    .record-count { padding: 0 16px 4px; font-size: 11px; color: #94a3b8; }
+
+    /* Cards */
+    .cards { padding: 4px 16px 80px; display: flex; flex-direction: column; gap: 8px; }
+    .card { background: white; border-radius: 16px; padding: 14px; border: 1px solid #e2e8f0; }
+    .card.due { border-color: #fcd34d; background: #fffdf0; }
+    .card-top { display: flex; justify-content: space-between; gap: 8px; }
+    .card-left { flex: 1; min-width: 0; }
+    .card-name { font-size: 14px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px; }
+    .due-badge { font-size: 10px; font-weight: 700; color: #f59e0b; }
+    .card-company { font-size: 11px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+    .card-subject { font-size: 11px; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+    .card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+    .card-value { font-size: 11px; color: #94a3b8; font-weight: 500; }
+    .card-phone { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+    .card-phone span { font-size: 11px; color: #475569; font-family: monospace; }
+    .new-contact { font-size: 11px; color: #3b82f6; font-weight: 500; }
+    .card-note { font-size: 11px; color: #94a3b8; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; }
+    .callback-date { font-size: 11px; color: #d97706; font-weight: 600; margin-top: 2px; }
+    .card-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .log-btn { display: flex; align-items: center; gap: 6px; background: #10b981; color: white; font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 12px; border: none; cursor: pointer; }
+    .log-btn:active { transform: scale(0.97); }
+    .dial-btn { display: flex; align-items: center; gap: 4px; border: 1px solid #e2e8f0; color: #64748b; font-size: 12px; padding: 8px 12px; border-radius: 12px; text-decoration: none; }
+
+    /* Status badges */
+    .badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; border: 1px solid; }
+    .badge-callback { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .badge-noanswer { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+    .badge-newcontact { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+    .badge-tender { background: #f3e8ff; color: #6b21a8; border-color: #c4b5fd; }
+    .badge-won { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .badge-lost { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .badge-closed { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+
+    /* Modal overlay */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
+    .modal { background: white; border-radius: 24px 24px 0 0; width: 100%; max-width: 480px; max-height: 92vh; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); }
+    .modal-header { background: #1e293b; border-radius: 24px 24px 0 0; padding: 20px 20px 16px; flex-shrink: 0; }
+    .modal-header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .modal-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+    .modal-name { font-size: 20px; font-weight: 700; color: white; line-height: 1.2; }
+    .modal-company { font-size: 13px; color: #cbd5e1; margin-top: 2px; }
+    .close-btn { color: #94a3b8; font-size: 22px; background: none; border: none; cursor: pointer; line-height: 1; margin-top: 2px; }
+    .dial-big { display: flex; align-items: center; justify-content: center; gap: 8px; background: #10b981; color: white; font-size: 14px; font-weight: 600; padding: 12px; border-radius: 14px; text-decoration: none; width: 100%; }
+    .modal-body { overflow-y: auto; flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+    /* Info grid */
+    .info-grid { background: #f8fafc; border-radius: 16px; padding: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .info-grid .full { grid-column: 1 / -1; }
+    .field-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+    .field-value { font-size: 13px; color: #1e293b; font-weight: 500; margin-top: 2px; }
+    .field-input { width: 100%; margin-top: 3px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; font-size: 13px; outline: none; font-family: inherit; }
+    .field-input:focus { border-color: #94a3b8; box-shadow: 0 0 0 2px rgba(148,163,184,0.2); }
+
+    /* Previous note box */
+    .prev-note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 16px; padding: 12px; }
+    .prev-note-label { font-size: 10px; color: #b45309; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .prev-note-text { font-size: 13px; color: #78350f; font-style: italic; }
+    .prev-note-date { font-size: 10px; color: #d97706; margin-top: 4px; }
+    .extra-note { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 12px; }
+    .extra-note-label { font-size: 10px; color: #1d4ed8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .extra-note-text { font-size: 13px; color: #1e3a8a; }
+
+    /* Outcome buttons */
+    .outcome-label { font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .outcome-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .outcome-btn { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 14px; border: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+    .outcome-btn.selected-callb { background: #fef3c7; color: #92400e; border: 2px solid #fcd34d; transform: scale(1.02); }
+    .outcome-btn.selected-noa { background: #f1f5f9; color: #475569; border: 2px solid #cbd5e1; transform: scale(1.02); }
+    .outcome-btn.selected-newc { background: #dbeafe; color: #1e40af; border: 2px solid #93c5fd; transform: scale(1.02); }
+    .outcome-btn.selected-tend { background: #f3e8ff; color: #6b21a8; border: 2px solid #c4b5fd; transform: scale(1.02); }
+    .outcome-btn.selected-won { background: #dcfce7; color: #166534; border: 2px solid #86efac; transform: scale(1.02); }
+    .outcome-btn.selected-lost { background: #fee2e2; color: #991b1b; border: 2px solid #fca5a5; transform: scale(1.02); }
+    .outcome-btn.selected-cl { background: #f1f5f9; color: #475569; border: 2px solid #cbd5e1; transform: scale(1.02); }
+
+    /* Conditional fields */
+    .cond-field { display: flex; flex-direction: column; gap: 3px; }
+    .cond-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .date-input { width: 100%; border: 1px solid #fcd34d; background: #fffbeb; border-radius: 12px; padding: 10px 12px; font-size: 14px; outline: none; font-family: inherit; }
+    .date-input:focus { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,0.15); }
+    .newc-grid { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .newc-title { font-size: 10px; color: #1d4ed8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* Notes textarea */
+    .notes-label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+    .notes-ta { width: 100%; border: 1px solid #e2e8f0; border-radius: 14px; padding: 10px 12px; font-size: 13px; font-family: inherit; resize: none; outline: none; min-height: 72px; }
+    .notes-ta:focus { border-color: #94a3b8; box-shadow: 0 0 0 2px rgba(148,163,184,0.2); }
+
+    /* Copy btn */
+    .copy-btn { width: 100%; border: 1.5px dashed #cbd5e1; color: #64748b; font-size: 12px; padding: 10px; border-radius: 14px; background: none; cursor: pointer; font-family: inherit; }
+    .copy-btn.copied { border-color: #10b981; color: #10b981; }
+
+    /* Modal footer */
+    .modal-footer { padding: 12px 20px 16px; border-top: 1px solid #f1f5f9; display: flex; gap: 8px; flex-shrink: 0; }
+    .cancel-btn { flex: 1; border: 1px solid #e2e8f0; color: #475569; padding: 14px; border-radius: 14px; font-size: 14px; font-weight: 500; background: white; cursor: pointer; font-family: inherit; }
+    .save-btn { flex: 2; background: #1e293b; color: white; padding: 14px; border-radius: 14px; font-size: 14px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; }
+    .save-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+    .save-btn:active:not(:disabled) { transform: scale(0.98); }
+
+    .skeleton { background: white; border-radius: 16px; height: 110px; border: 1px solid #e2e8f0; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+const STORAGE_KEY = 'followup_v3';
+const DOORBELL_URL = 'https://script.google.com/macros/s/AKfycbwDp4W_3N-2sviLaI826R572Rvvu3dtN6lrD6bT18bM2j3-lhO5V8xef9cZmwzoOzUfrg/exec';
+
+const SHEET_DATA = [
+  { "E DATE": "28/1/26", "E NUMBER": "E26083", "EMAIL SUBJECT": "RFQ - A&A Works along Cho Chu Kang Way - Bicycle Rack", CUSTOMER: "SARAVANA KUMAR", CONTACT: "6515 8276 / 6515 6690", COMPANY: "RAMO INDUSTRIES", "Q DATE": "29/1/26", "Q NUMBER": "Q30760", "Q VALUE": "$13,788.00", CALLS: "65895630 - DIRECT LINE NO ANSWER", FOLLWUP: "Call Back", _rowIndex: 2 },
+  { "E DATE": "26/1/26", "E NUMBER": "E26070", "EMAIL SUBJECT": "Enquire Quotation for Stainless Steel Bicycle Rack Works", CUSTOMER: "CHONG SEN YIH", CONTACT: "6753 1302", COMPANY: "TAI YONG CONSTRUCTION", "Q DATE": "29/1/26", "Q NUMBER": "Q30758", "Q VALUE": "$13,803.00", CALLS: "TENDER CLOSED, STILL NO NEWS - WILL CALL US BACK", FOLLWUP: "Closed", _rowIndex: 3 },
+  { "E DATE": "28/1/26", "E NUMBER": "E26084", "EMAIL SUBJECT": "Quotation Request - PRPG - Bicycle Shed - Sunny", CUSTOMER: "MI MI", CONTACT: "8144 1596", COMPANY: "I Z SPECIALIST", "Q DATE": "30/1/26", "Q NUMBER": "Q30761", "Q VALUE": "$6,200.00", CALLS: "PROJECT AWARDED TO OTHER COMPANY - ORION INTEGRATED AWARDED", FOLLWUP: "Closed", _rowIndex: 4 },
+  { "E DATE": "27/1/26", "E NUMBER": "E26079", "EMAIL SUBJECT": "Enquiry on Installation of Bicycle Racks", CUSTOMER: "CLEMENS LEE", CONTACT: "6932 5750", COMPANY: "OCEAN IFM", "Q DATE": "2/5/2026", "Q NUMBER": "Q30765", "Q VALUE": "$107,972.00", CALLS: "CLEMENS NO MORE - TRANSFER TO PATRICK, MANAGER IS RAJ - PLS CALL BACK", FOLLWUP: "Call Back", _rowIndex: 5 },
+  { "E DATE": "04/02/26", "E NUMBER": "E26097", "EMAIL SUBJECT": "Quotation for Bicycle Racking (Single and Double Tier)", CUSTOMER: "TUN WUNNA LIN", CONTACT: "8301 0395", COMPANY: "BUILDERS ALLIANCE", "Q DATE": "2/6/2026", "Q NUMBER": "Q30770", "Q VALUE": "$12,840.00", CALLS: "WILL CHECK WITH MAIN CON, LET ME KNOW AGAIN", FOLLWUP: "Call Back", _rowIndex: 6 },
+  { "E DATE": "04/03/26", "E NUMBER": "E26161", "EMAIL SUBJECT": "Enquire quotation of double tier bicycle rack for HDB projects", CUSTOMER: "WANG ZHI JIE", CONTACT: "8151 2402", COMPANY: "HONGCHUN CONSTRUCTION", "Q DATE": "3/6/2026", "Q NUMBER": "Q30806", "Q VALUE": "$6,576.00", CALLS: "LINE DEAD", FOLLWUP: "Closed", _rowIndex: 7 },
+  { "E DATE": "11/03/26", "E NUMBER": "E26180", "EMAIL SUBJECT": "RFQ: Supply and Fabricate of 2 tier Bicycle Rack", CUSTOMER: "XIN YI", CONTACT: "6951 8101", COMPANY: "CHOON HIN STAINLESS STEEL", "Q DATE": "16/3/26", "Q NUMBER": "Q30823", "Q VALUE": "$97,200.00", CALLS: "MAINCON REMOVE REQUEST FOR BICYCLE RACK", FOLLWUP: "Closed", _rowIndex: 8 },
+  { "E DATE": "24/2/26", "E NUMBER": "E26137", "EMAIL SUBJECT": "RE: Quotation for Dual Bicycle Rack", CUSTOMER: "ZALDEA FE LINGON", CONTACT: "6278 8282", COMPANY: "EM SERVICES", "Q DATE": "16/3/26", "Q NUMBER": "Q30831", "Q VALUE": "$17,538.00", CALLS: "62788282 / 62778159 - NOT CONTACTABLE", FOLLWUP: "Call Back", _rowIndex: 9 },
+  { "E DATE": "18/3/26", "E NUMBER": "E26207", "EMAIL SUBJECT": "Double Tier Bicycle Racks", CUSTOMER: "TIMOTHY", CONTACT: "6376 2560", COMPANY: "SAVILLS PROPERTY", "Q DATE": "27/3/26", "Q NUMBER": "Q30853", "Q VALUE": "$6,727.00", CALLS: "CALLED - OUT FOR LUNCH", FOLLWUP: "Call Back", _rowIndex: 10 },
+  { "E DATE": "05/08/25", "E NUMBER": "E25357", "EMAIL SUBJECT": "BICYCLE RACK", CUSTOMER: "SERENE LOIW", CONTACT: "8180 9550", COMPANY: "ORION INTEGRATED SERVICES", "Q DATE": "14/5/2025", "Q NUMBER": "Q30197", "Q VALUE": "$7,270.00", CALLS: "NO ANSWER", FOLLWUP: "Call Back", "CALL 2": "SEND QUOTE & CO PROFILE. NEED BICYCLE SHED ALSO. PASIR RIS DRIVE", _rowIndex: 11 },
+];
+
+const STATUSES = [
+  { label: "Call Back", icon: "📞", cls: "selected-callb", badge: "badge-callback" },
+  { label: "No Answer", icon: "🔇", cls: "selected-noa", badge: "badge-noanswer" },
+  { label: "New Contact", icon: "👤", cls: "selected-newc", badge: "badge-newcontact" },
+  { label: "Tender Pending", icon: "⏳", cls: "selected-tend", badge: "badge-tender" },
+  { label: "Won", icon: "✅", cls: "selected-won", badge: "badge-won" },
+  { label: "Lost", icon: "❌", cls: "selected-lost", badge: "badge-lost" },
+  { label: "Closed", icon: "🔒", cls: "selected-cl", badge: "badge-closed" },
+];
+
+function badgeFor(status) {
+  const s = STATUSES.find(x => x.label === status);
+  if (!s) return status ? `<span style="font-size:11px;color:#94a3b8">${status}</span>` : '<span style="font-size:11px;color:#94a3b8">—</span>';
+  return `<span class="badge ${s.badge}">${s.icon} ${s.label}</span>`;
+}
+
+// State
+let records = [];
+let activeRecord = null;
+let activeFilter = 'All';
+let saveMsg = '';
+let saveMsgTimer = null;
+
+function loadRecords() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) { records = JSON.parse(saved); return; }
+  } catch(e) {}
+  records = JSON.parse(JSON.stringify(SHEET_DATA));
+  saveRecords();
+}
+
+function saveRecords() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); } catch(e) {}
+}
+
+function resetRecords() {
+  records = JSON.parse(JSON.stringify(SHEET_DATA));
+  saveRecords();
+  showSaveMsg('Reset to sheet data');
+  render();
+}
+
+function showSaveMsg(msg) {
+  saveMsg = msg;
+  if (saveMsgTimer) clearTimeout(saveMsgTimer);
+  saveMsgTimer = setTimeout(() => { saveMsg = ''; renderTopbar(); }, 2500);
+  renderTopbar();
+}
+
+function getFiltered() {
+  if (activeFilter === 'All') return records;
+  return records.filter(r => (r.followupStatus || r.FOLLWUP) === activeFilter);
+}
+
+function getCallbackDue() {
+  return records.filter(r => {
+    const st = r.followupStatus || r.FOLLWUP;
+    if (st !== 'Call Back') return false;
+    if (!r.callbackDate) return false;
+    return new Date(r.callbackDate) <= new Date();
+  });
+}
+
+function today() {
+  return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+
+function renderTopbar() {
+  document.getElementById('topbar-saveMsg').textContent = saveMsg;
+}
+
+function render() {
+  const filtered = getFiltered();
+  const due = getCallbackDue();
+  const todayStr = today();
+
+  let html = `
+    <div class="topbar" id="topbar">
+      <div class="topbar-left">
+        <p>${todayStr}</p>
+        <h1>Follow-Up Calls</h1>
+      </div>
+      <div class="topbar-right">
+        <span class="save-msg" id="topbar-saveMsg">${saveMsg}</span>
+        <button class="reset-btn" onclick="resetRecords()">↻ Reset</button>
+      </div>
+    </div>
+
+    ${due.length > 0 ? `
+    <div class="banner-due">
+      <span>📞 ${due.length} call-back${due.length > 1 ? 's' : ''} due today</span>
+      <button onclick="setFilter('Call Back')">Show</button>
+    </div>` : ''}
+
+    <div class="banner-info">💡 Data from your sheet. Ask Claude to refresh when new rows are added.</div>
+
+    <div class="filters">
+      ${['All','Call Back','Tender Pending','No Answer','New Contact','Won','Lost','Closed'].map(f =>
+        `<button class="filter-btn ${activeFilter===f?'active':''}" onclick="setFilter('${f}')">${f}</button>`
+      ).join('')}
+    </div>
+
+    <div class="record-count">${filtered.length} record${filtered.length!==1?'s':''}</div>
+
+    <div class="cards">
+      ${filtered.length === 0
+        ? '<div class="empty">No records for this filter.</div>'
+        : filtered.map((r, i) => renderCard(r, i)).join('')}
+    </div>
+  `;
+
+  document.getElementById('app').innerHTML = html;
+}
+
+function renderCard(r, i) {
+  const status = r.followupStatus || r.FOLLWUP || '';
+  const isDue = status === 'Call Back' && r.callbackDate && new Date(r.callbackDate) <= new Date();
+  const phone = r.newContactPhone || r.CONTACT || '';
+  const cleanPhone = phone.replace(/[^\d+]/g, '');
+  const idx = records.indexOf(r);
+
+  return `
+    <div class="card ${isDue ? 'due' : ''}">
+      <div class="card-top">
+        <div class="card-left">
+          <div class="card-name">
+            ${r.CUSTOMER || '—'}
+            ${isDue ? '<span class="due-badge">DUE</span>' : ''}
+          </div>
+          <div class="card-company">${r.COMPANY || '—'}</div>
+          <div class="card-subject">${r['EMAIL SUBJECT'] || '—'}</div>
+        </div>
+        <div class="card-right">
+          ${badgeFor(status)}
+          <span class="card-value">${r['Q VALUE'] || '—'}</span>
+        </div>
+      </div>
+      <div class="card-phone">
+        <span style="color:#10b981;font-size:11px">📞</span>
+        <span>${phone || 'No number'}</span>
+        ${r.newContactName ? `<span class="new-contact">→ ${r.newContactName}</span>` : ''}
+      </div>
+      ${(r.callNotes || r.CALLS) ? `<div class="card-note">"${r.callNotes || r.CALLS}"</div>` : ''}
+      ${r.callbackDate && status === 'Call Back' ? `<div class="callback-date">Call back: ${r.callbackDate}</div>` : ''}
+      <div class="card-actions">
+        <button class="log-btn" onclick="openModal(${idx})">📞 Log Call</button>
+        ${phone ? `<a class="dial-btn" href="tel:${cleanPhone}">Dial</a>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  render();
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+
+function openModal(idx) {
+  activeRecord = idx;
+  renderModal();
+}
+
+function closeModal() {
+  activeRecord = null;
+  document.getElementById('modal-overlay').remove();
+}
+
+function renderModal() {
+  const r = records[activeRecord];
+  const phone = r.newContactPhone || r.CONTACT || '';
+  const cleanPhone = phone.replace(/[^\d+]/g, '');
+  const currentStatus = r.followupStatus || '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-header-top">
+          <div>
+            <div class="modal-label">Active Call</div>
+            <div class="modal-name">${r.CUSTOMER || '—'}</div>
+            <div class="modal-company">${r.COMPANY || '—'}</div>
+          </div>
+          <button class="close-btn" onclick="closeModal()">✕</button>
+        </div>
+        ${phone ? `<a class="dial-big" href="tel:${cleanPhone}">📞 Dial ${phone}</a>` : ''}
+      </div>
+
+      <div class="modal-body" id="modal-body">
+        <div class="info-grid">
+          <div>
+            <div class="field-label">Enquiry No.</div>
+            <div class="field-value">${r['E NUMBER'] || '—'}</div>
+          </div>
+          <div>
+            <div class="field-label">Enquiry Date</div>
+            <div class="field-value">${r['E DATE'] || '—'}</div>
+          </div>
+          <div class="full">
+            <div class="field-label">Enquiry Subject</div>
+            <div class="field-value" style="font-size:12px;line-height:1.4">${r['EMAIL SUBJECT'] || '—'}</div>
+          </div>
+          <div>
+            <div class="field-label">Quote No.</div>
+            <input class="field-input" id="m-qno" value="${r['Q NUMBER'] || ''}">
+          </div>
+          <div>
+            <div class="field-label">Quote Value</div>
+            <input class="field-input" id="m-qval" value="${r['Q VALUE'] || ''}">
+          </div>
+        </div>
+
+        ${(r.callNotes || r.CALLS) ? `
+        <div class="prev-note">
+          <div class="prev-note-label">Previous Call Note</div>
+          <div class="prev-note-text">"${r.callNotes || r.CALLS}"</div>
+          ${r.lastCalled ? `<div class="prev-note-date">${r.lastCalled}</div>` : ''}
+        </div>` : ''}
+
+        ${r['CALL 2'] ? `
+        <div class="extra-note">
+          <div class="extra-note-label">Additional Notes</div>
+          <div class="extra-note-text">${r['CALL 2']}</div>
+        </div>` : ''}
+
+        <div>
+          <div class="outcome-label">Call Outcome</div>
+          <div class="outcome-grid">
+            ${STATUSES.map(s => `
+              <button class="outcome-btn ${currentStatus===s.label ? s.cls : ''}"
+                id="outcome-${s.label.replace(/ /g,'_')}"
+                onclick="selectOutcome('${s.label}')">
+                ${s.icon} ${s.label}
+              </button>`).join('')}
+          </div>
+        </div>
+
+        <div id="cond-fields"></div>
+
+        <div>
+          <div class="notes-label">Call Notes</div>
+          <textarea class="notes-ta" id="m-notes" placeholder="e.g. Spoke to Patrick — tender still pending, will update end of month…">${r.callNotes || ''}</textarea>
+        </div>
+
+        <button class="copy-btn" id="copy-btn" onclick="copyNote()">📋 Copy note to paste into Google Sheet</button>
+      </div>
+
+      <div class="modal-footer">
+        <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+        <button class="save-btn" id="save-btn" onclick="saveCall()" ${!currentStatus ? 'disabled' : ''}>Save</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  if (currentStatus) renderCondFields(currentStatus);
+}
+
+let selectedStatus = '';
+
+function selectOutcome(label) {
+  const r = records[activeRecord];
+  selectedStatus = label;
+  // Update button styles
+  STATUSES.forEach(s => {
+    const btn = document.getElementById('outcome-' + s.label.replace(/ /g,'_'));
+    if (btn) btn.className = 'outcome-btn' + (s.label === label ? ' ' + s.cls : '');
+  });
+  document.getElementById('save-btn').disabled = false;
+  renderCondFields(label);
+}
+
+function renderCondFields(status) {
+  const r = records[activeRecord];
+  const container = document.getElementById('cond-fields');
+  if (!container) return;
+
+  if (status === 'Call Back') {
+    container.innerHTML = `
+      <div class="cond-field">
+        <div class="cond-label">Call Back Date</div>
+        <input type="date" class="date-input" id="m-cbdate" value="${r.callbackDate || ''}">
+      </div>`;
+  } else if (status === 'New Contact') {
+    container.innerHTML = `
+      <div class="newc-grid">
+        <div class="newc-title">New Contact Details</div>
+        <div class="cond-field">
+          <div class="cond-label">Contact Name</div>
+          <input class="field-input" id="m-ncname" placeholder="e.g. Patrick Tan" value="${r.newContactName || ''}">
+        </div>
+        <div class="cond-field">
+          <div class="cond-label">Phone Number</div>
+          <input class="field-input" id="m-ncphone" type="tel" placeholder="e.g. 9123 4567" value="${r.newContactPhone || ''}">
+        </div>
+      </div>`;
+  } else {
+    container.innerHTML = '';
+  }
+}
+
+function copyNote() {
+  const status = selectedStatus || records[activeRecord].followupStatus || '';
+  const notes = document.getElementById('m-notes')?.value || '';
+  const cbDate = document.getElementById('m-cbdate')?.value || '';
+  const ncName = document.getElementById('m-ncname')?.value || '';
+  const ncPhone = document.getElementById('m-ncphone')?.value || '';
+  const todayStr = new Date().toLocaleDateString('en-GB');
+  const parts = [todayStr, notes, status,
+    status === 'Call Back' && cbDate ? 'Call back: ' + cbDate : '',
+    status === 'New Contact' ? 'New contact: ' + ncName + ' ' + ncPhone : '',
+  ].filter(Boolean).join(' | ');
+
+  navigator.clipboard.writeText(parts).then(() => {
+    const btn = document.getElementById('copy-btn');
+    if (btn) { btn.textContent = '✓ Copied!'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = '📋 Copy note to paste into Google Sheet'; btn.classList.remove('copied'); }, 2000); }
+  }).catch(() => {
+    // fallback for older iOS
+    const ta = document.createElement('textarea');
+    ta.value = parts; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.getElementById('copy-btn');
+    if (btn) { btn.textContent = '✓ Copied!'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = '📋 Copy note to paste into Google Sheet'; btn.classList.remove('copied'); }, 2000); }
+  });
+}
+
+async function saveCall() {
+  const r = records[activeRecord];
+  const status = selectedStatus || r.followupStatus || '';
+  if (!status) return;
+
+  const cbDate = document.getElementById('m-cbdate')?.value || '';
+  const ncName = document.getElementById('m-ncname')?.value || '';
+  const ncPhone = document.getElementById('m-ncphone')?.value || '';
+  const notes = document.getElementById('m-notes')?.value || '';
+  const qno = document.getElementById('m-qno')?.value || r['Q NUMBER'];
+  const qval = document.getElementById('m-qval')?.value || r['Q VALUE'];
+
+  const todayStr = new Date().toLocaleDateString('en-GB');
+  const callNote = [todayStr, notes,
+    status === 'Call Back' && cbDate ? 'Call back: ' + cbDate : '',
+    status === 'New Contact' ? 'New contact: ' + ncName + ' ' + ncPhone : '',
+  ].filter(Boolean).join(' | ');
+
+  records[activeRecord] = {
+    ...r,
+    followupStatus: status,
+    callNotes: notes,
+    callbackDate: status === 'Call Back' ? cbDate : '',
+    newContactName: status === 'New Contact' ? ncName : (r.newContactName || ''),
+    newContactPhone: status === 'New Contact' ? ncPhone : (r.newContactPhone || ''),
+    'Q NUMBER': qno,
+    'Q VALUE': qval,
+    lastCalled: todayStr,
+  };
+
+  saveRecords();
+  closeModal();
+  showSaveMsg('💾 Saving to sheet…');
+  render();
+
+  try {
+    const params = new URLSearchParams({ qNumber: qno, calls: callNote, status: status });
+    const resp = await fetch(DOORBELL_URL + '?' + params.toString());
+    const result = await resp.json();
+    if (result.success) {
+      showSaveMsg('✅ Sheet updated! Row ' + result.row);
+    } else {
+      showSaveMsg('⚠️ Saved locally: ' + (result.error || 'unknown error'));
+    }
+  } catch(err) {
+    showSaveMsg('⚠️ Saved locally — sheet sync failed');
+  }
+}
+
+// Init
+loadRecords();
+render();
+</script>
+</body>
+</html>
