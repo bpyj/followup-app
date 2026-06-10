@@ -179,12 +179,43 @@ let saveMsg = '';
 let saveMsgTimer = null;
 
 function loadRecords() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) { records = JSON.parse(saved); return; }
-  } catch(e) {}
-  records = JSON.parse(JSON.stringify(SHEET_DATA));
-  saveRecords();
+  // Always fetch live from Google Sheet
+  fetchFromSheet(function(liveData) {
+    if (liveData) {
+      records = liveData;
+      saveRecords();
+    } else {
+      // Fallback to local storage or baked-in data
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) { records = JSON.parse(saved); return; }
+      } catch(e) {}
+      records = JSON.parse(JSON.stringify(SHEET_DATA));
+      saveRecords();
+    }
+    render();
+  });
+}
+
+function fetchFromSheet(callback) {
+  const cbName = 'sheetRead_' + Date.now();
+  const script = document.createElement('script');
+  script.src = DOORBELL_URL + '?action=read&callback=' + cbName;
+  window[cbName] = function(result) {
+    delete window[cbName];
+    document.body.removeChild(script);
+    if (result.success && result.data) {
+      callback(result.data);
+    } else {
+      callback(null);
+    }
+  };
+  script.onerror = function() {
+    delete window[cbName];
+    document.body.removeChild(script);
+    callback(null);
+  };
+  document.body.appendChild(script);
 }
 
 function saveRecords() {
@@ -192,10 +223,17 @@ function saveRecords() {
 }
 
 function resetRecords() {
-  records = JSON.parse(JSON.stringify(SHEET_DATA));
-  saveRecords();
-  showSaveMsg('Reset to sheet data');
-  render();
+  showSaveMsg('🔄 Syncing from sheet...');
+  fetchFromSheet(function(liveData) {
+    if (liveData) {
+      records = liveData;
+      saveRecords();
+      showSaveMsg('✅ Synced from sheet!');
+      render();
+    } else {
+      showSaveMsg('⚠️ Could not reach sheet');
+    }
+  });
 }
 
 function showSaveMsg(msg) {
@@ -226,7 +264,8 @@ function today() {
 // ── RENDER ────────────────────────────────────────────────────────────────────
 
 function renderTopbar() {
-  document.getElementById('topbar-saveMsg').textContent = saveMsg;
+  const el = document.getElementById('topbar-saveMsg');
+  if (el) el.textContent = saveMsg;
 }
 
 function render() {
@@ -242,7 +281,7 @@ function render() {
       </div>
       <div class="topbar-right">
         <span class="save-msg" id="topbar-saveMsg">${saveMsg}</span>
-        <button class="reset-btn" onclick="resetRecords()">↻ Reset</button>
+        <button class="reset-btn" onclick="resetRecords()">↻ Sync Sheet</button>
       </div>
     </div>
 
@@ -546,8 +585,9 @@ function saveCall() {
 }
 
 // Init
-loadRecords();
 render();
+showSaveMsg('🔄 Loading from sheet...');
+loadRecords();
 </script>
 </body>
 </html>
