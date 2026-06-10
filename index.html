@@ -140,7 +140,7 @@
 
 <script>
 const STORAGE_KEY = 'followup_v3';
-const DOORBELL_URL = 'https://script.google.com/macros/s/AKfycbwDp4W_3N-2sviLaI826R572Rvvu3dtN6lrD6bT18bM2j3-lhO5V8xef9cZmwzoOzUfrg/exec';
+const DOORBELL_URL = 'https://script.google.com/macros/s/AKfycbwDp4W_3N-2sviLaI826R572Rvvu3dtN6lrD6bT18bM2j3-IhO5V8xef9cZmwzoOzUfrg/exec';
 
 const SHEET_DATA = [
   { "E DATE": "28/1/26", "E NUMBER": "E26083", "EMAIL SUBJECT": "RFQ - A&A Works along Cho Chu Kang Way - Bicycle Rack", CUSTOMER: "SARAVANA KUMAR", CONTACT: "6515 8276 / 6515 6690", COMPANY: "RAMO INDUSTRIES", "Q DATE": "29/1/26", "Q NUMBER": "Q30760", "Q VALUE": "$13,788.00", CALLS: "65895630 - DIRECT LINE NO ANSWER", FOLLWUP: "Call Back", _rowIndex: 2 },
@@ -488,7 +488,7 @@ function copyNote() {
   });
 }
 
-async function saveCall() {
+function saveCall() {
   const r = records[activeRecord];
   const status = selectedStatus || r.followupStatus || '';
   if (!status) return;
@@ -523,18 +523,26 @@ async function saveCall() {
   showSaveMsg('💾 Saving to sheet…');
   render();
 
-  try {
-    const params = new URLSearchParams({ qNumber: qno, calls: callNote, status: status });
-    const resp = await fetch(DOORBELL_URL + '?' + params.toString());
-    const result = await resp.json();
+  // Use JSONP to bypass CORS
+  const callbackName = 'cb_' + Date.now();
+  const params = new URLSearchParams({ qNumber: qno, calls: callNote, status: status, callback: callbackName });
+  const script = document.createElement('script');
+  script.src = DOORBELL_URL + '?' + params.toString();
+  window[callbackName] = function(result) {
+    delete window[callbackName];
+    document.body.removeChild(script);
     if (result.success) {
       showSaveMsg('✅ Sheet updated! Row ' + result.row);
     } else {
-      showSaveMsg('⚠️ Saved locally: ' + (result.error || 'unknown error'));
+      showSaveMsg('⚠️ ' + (result.error || 'Sync error'));
     }
-  } catch(err) {
+  };
+  script.onerror = function() {
+    delete window[callbackName];
+    document.body.removeChild(script);
     showSaveMsg('⚠️ Saved locally — sheet sync failed');
-  }
+  };
+  document.body.appendChild(script);
 }
 
 // Init
